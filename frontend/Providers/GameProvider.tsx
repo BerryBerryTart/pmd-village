@@ -22,7 +22,7 @@ import type {
   ServerPlayerInterface,
 } from "../../utils/interfaces";
 import { v6 } from "uuid";
-import { loadImage, ServerPlayer, Sprite } from "../../utils/utils";
+import { loadImage, MapSprite, ServerPlayer, Sprite } from "../../utils/utils";
 
 export const GameContext = createContext({});
 
@@ -36,6 +36,7 @@ export interface GameContextType {
     spriteMap: Map<string, SpriteMap>;
     portraitMap: Map<string, Map<string, ImageBitmap>>;
     playerList: Map<string, ServerPlayerInterface>;
+    mapProvider: MapSprite;
   };
   actions: {
     sendMessage: (msg: string, portrait: string) => void;
@@ -77,6 +78,7 @@ export const GameProvider: React.FC<PropsWithChildren> = ({ children }) => {
   const [playerList, setPlayerList] = useState<
     Map<string, ServerPlayerInterface>
   >(new Map());
+  const mapProvider = useRef(undefined);
 
   useEffect(() => {
     loadSubstituteSprite();
@@ -105,14 +107,16 @@ export const GameProvider: React.FC<PropsWithChildren> = ({ children }) => {
 
   const loadAssets = useCallback(async () => {
     const data: { characters: string[] } = await fetch(
-      `./characters.json`,
+      `/pmd-village/characters.json`,
     ).then((res) => res.json());
 
     const { characters } = data;
     const portraitMapBuffer = new Map();
 
     for (let character of characters) {
-      const img = await loadImage(`./sprite/${character}/portrait.png`);
+      const img = await loadImage(
+        `/pmd-village/sprite/${character}/portrait.png`,
+      );
       const mapBuffer = new Map();
 
       //loopify this later lol
@@ -124,10 +128,14 @@ export const GameProvider: React.FC<PropsWithChildren> = ({ children }) => {
   }, []);
 
   const loadSprites = async (name: string) => {
-    const walkImg = await loadImage(`./sprite/${name}/Walk-Anim.png`);
-    const idleImg = await loadImage(`./sprite/${name}/Idle-Anim.png`);
+    const walkImg = await loadImage(
+      `/pmd-village/sprite/${name}/Walk-Anim.png`,
+    );
+    const idleImg = await loadImage(
+      `/pmd-village/sprite/${name}/Idle-Anim.png`,
+    );
     const animData: AnimDataInterface = await fetch(
-      `./sprite/${name}/AnimData.json`,
+      `/pmd-village/sprite/${name}/AnimData.json`,
     ).then((res) => res.json());
 
     const process = async (
@@ -172,8 +180,15 @@ export const GameProvider: React.FC<PropsWithChildren> = ({ children }) => {
     await process("Idle", idleImg, PlayerStatus.IDLE);
   };
 
+  const loadMap = async () => {
+    const mapEntity = new MapSprite("default");
+    await mapEntity.setup();
+    mapProvider.current = mapEntity;
+  };
+
   const connect = async (username: string, spriteName: string) => {
     await loadSprites(spriteName);
+    await loadMap();
     return handleConnect(username, spriteName);
   };
 
@@ -189,13 +204,14 @@ export const GameProvider: React.FC<PropsWithChildren> = ({ children }) => {
     });
 
     setPlayerList(
-      new Map([
-        ...playerList,
-        [
-          thisPlayerData.current.userID,
-          { userID: thisPlayerData.current.userID, username, spriteName },
-        ],
-      ]),
+      (map) =>
+        new Map([
+          ...map,
+          [
+            thisPlayerData.current.userID,
+            { userID: thisPlayerData.current.userID, username, spriteName },
+          ],
+        ]),
     );
 
     sock.current = socket;
@@ -241,7 +257,7 @@ export const GameProvider: React.FC<PropsWithChildren> = ({ children }) => {
         }
 
         if (playerMapBuffer.size > 0) {
-          setPlayerList(new Map([...playerList, ...playerMapBuffer]));
+          setPlayerList((map) => new Map([...map, ...playerMapBuffer]));
         }
       },
     );
@@ -256,9 +272,11 @@ export const GameProvider: React.FC<PropsWithChildren> = ({ children }) => {
         entities.current.splice(foundIndex, 1);
       }
 
-      const mapBuffer = new Map([...playerList]);
-      mapBuffer.delete(userID);
-      setPlayerList(new Map([...mapBuffer]));
+      setPlayerList((map) => {
+        const mapBuffer = new Map([...map]);
+        mapBuffer.delete(payload.userID);
+        return new Map([...mapBuffer]);
+      });
     });
 
     socket.on(SocketEvent.CLIENT_CONNECT, async () => {
@@ -277,15 +295,12 @@ export const GameProvider: React.FC<PropsWithChildren> = ({ children }) => {
     thisPlayerData.current.username = "";
     thisPlayerData.current.spriteName = "";
     //reset dummy sprite
-    const dummy = spriteMap.current.get("substitute");
-    if (dummy) {
-      thisPlayerData.current.sprite = new Sprite(
-        "substitute",
-        0,
-        0,
-        thisPlayerData.current.userID,
-      );
-    }
+    thisPlayerData.current.sprite = new Sprite(
+      "substitute",
+      0,
+      0,
+      thisPlayerData.current.userID,
+    );
     setPlayerList(new Map());
     setMessages([]);
     setConnected(false);
@@ -345,6 +360,7 @@ export const GameProvider: React.FC<PropsWithChildren> = ({ children }) => {
       spriteMap: spriteMap.current,
       portraitMap,
       playerList,
+      mapProvider: mapProvider.current
     },
     actions: { sendMessage, connect, disconnect, updatePlayerPosition },
   } as GameContextType;

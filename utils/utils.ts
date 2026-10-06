@@ -1,5 +1,6 @@
 import dayjs from "dayjs";
 import { PlayerDirection, PlayerStatus } from "../utils/enums";
+import type { MapDataInterface, SpriteMap } from './interfaces';
 
 type SpriteMapType = Map<
   string,
@@ -73,6 +74,8 @@ export class Sprite {
 
     if (!result) return;
 
+    this.frameTimeCounter += 1;
+
     if (this.frameTimeCounter >= result.timings[this.frameCounter]) {
       this.frameCounter = (this.frameCounter + 1) % result.timings.length;
       this.frameTimeCounter = 0;
@@ -89,8 +92,6 @@ export class Sprite {
         status: this.status,
       });
     }
-
-    this.frameTimeCounter += 1;
 
     return sprite;
   }
@@ -185,7 +186,105 @@ export function imgToBase64(img: ImageBitmap) {
   canvas.width = img.width;
   canvas.height = img.height;
 
-  ctx.drawImage(img, 0, 0);
+  if (ctx) ctx.drawImage(img, 0, 0);
+  else throw new Error("Error: Canvas Not Supported!");
 
   return canvas.toDataURL();
+}
+
+export class MapEntity {
+  width = 0;
+  height = 0;
+  frameTimeCounter = 0;
+  frameCounter = 0;
+  spriteName = "";
+  positions = [];
+
+  constructor(width, height, spriteName, positions) {
+    this.width = width;
+    this.height = height;
+    this.spriteName = spriteName;
+    this.positions = positions;
+  }
+
+  advance(timings: number[]) {
+    this.frameTimeCounter += 1;
+
+    if (this.frameTimeCounter === timings[this.frameCounter]) {
+      this.frameCounter = (this.frameCounter + 1) % timings.length;
+      this.frameTimeCounter = 0;
+    }
+  }
+
+  requestNextFrame(spriteMap: Map<string, SpriteMap>) {
+    const result = spriteMap.get(this.spriteName);
+    if (!result) return;
+
+    this.advance(result.timings);
+    return result.sprite[this.frameCounter];
+  }
+}
+
+//main map class
+export class MapSprite {
+  name = "default";
+  width = 500;
+  height = 500;
+  bitmap = undefined;
+  spriteMap = new Map();
+  entities = [];
+  boundingBoxes = [];
+
+  constructor(name: string) {
+    this.name = name;
+  }
+
+  async setup() {
+    const data: MapDataInterface = await fetch("/pmd-village/map/default.json").then((res) =>
+      res.json(),
+    );
+
+    const img = await loadImage(`/pmd-village/map/${data.filename}`);
+    this.bitmap = await createImageBitmap(
+      img,
+      data.startX,
+      data.startY,
+      data.width,
+      data.height,
+    );
+    this.width = data.width;
+    this.height = data.height;
+
+    //load decor assets
+    for (let decorSprite of data.decorSprites) {
+      const spriteArr = [];
+
+      for (let i = 0; i < decorSprite.frames; i++) {
+        spriteArr.push(
+          await createImageBitmap(
+            img,
+            decorSprite.startX +
+              (decorSprite.width + decorSprite.widthPadding) * i,
+            decorSprite.startY,
+            decorSprite.width,
+            decorSprite.height,
+          ),
+        );
+      }
+
+      this.spriteMap.set(decorSprite.name, {
+        sprite: spriteArr,
+        timings: decorSprite.timings,
+      });
+
+      this.entities.push(
+        new MapEntity(
+          decorSprite.width,
+          decorSprite.height,
+          decorSprite.name,
+          decorSprite.positions,
+        ),
+      );
+    }
+  }
 }

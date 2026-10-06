@@ -44,3 +44,28 @@ export interface ServerPlayerInterface extends BasePlayerInterface {
   spriteName: string;
   sprite?: Sprite;
 }
+
+export interface SpriteMap {
+  sprite: ImageBitmap[][];
+  timings: number[];
+}
+
+export interface MapDataInterface {
+  name: string;
+  filename: string;
+  startX: number;
+  startY: number;
+  width: number;
+  height: number;
+  decorSprites: {
+    name: string;
+    startX: number;
+    startY: number;
+    width: number;
+    height: number;
+    widthPadding: number;
+    frames: number;
+    timings: number[];
+    positions: [{ x: number; y: number }];
+  }[];
+}

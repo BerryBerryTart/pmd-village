@@ -6,7 +6,8 @@
   "scripts": {
     "start:back": "tsx watch --exclude ./frontend ./backend/server.ts",
     "start:front": "vite --mode dev",
-    "build": "tsc -b && vite build",
+    "build:front": "vite build",
+    "build:back": "webpack",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -22,12 +23,18 @@
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
-    "@types/node": "^26.6.2",
+    "@types/node": "^26.6.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
+    "bufferutil": "^4.1.0",
+    "ts-loader": "^9.6.2",
+    "ts-node": "^10.9.2",
     "tsx": "^4.23.15",
-    "typescript": "~7.0.2",
-    "vite": "^8.3.1"
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "utf-8-validate": "^6.0.6",
+    "vite": "^8.3.1",
+    "webpack": "^5.111.1",
+    "webpack-cli": "^7.2.3"
   }
 }

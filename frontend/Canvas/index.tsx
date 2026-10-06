@@ -1,6 +1,5 @@
 import { useContext, useEffect, useRef } from "react";
 import "./index.css";
-import { loadImage } from "../../utils/utils";
 import { PlayerDirection, PlayerStatus } from "../../utils/enums";
 import { GameContext, type GameContextType } from "../Providers/GameProvider";
 
@@ -8,7 +7,9 @@ const Canvas = () => {
   const gameContext = useContext(GameContext) as GameContextType;
   const keyDownListener = useRef((_: KeyboardEvent) => {});
   const keyUpListener = useRef((_: KeyboardEvent) => {});
-  const { inputFocus, thisPlayerData, entities, spriteMap } = gameContext.data;
+  const loopRef = useRef(-1);
+  const { inputFocus, thisPlayerData, entities, spriteMap, mapProvider } =
+    gameContext.data;
   const { updatePlayerPosition } = gameContext.actions;
 
   useEffect(() => {
@@ -16,6 +17,7 @@ const Canvas = () => {
     return () => {
       window.removeEventListener("keydown", keyDownListener.current);
       window.removeEventListener("keyup", keyUpListener.current);
+      window.cancelAnimationFrame(loopRef.current);
     };
   }, []);
 
@@ -44,13 +46,26 @@ const Canvas = () => {
     const BASE_SPEED = 1;
     const buffer = 15;
 
-    const loadMap = async () => {
-      const img = await loadImage("./sprite/map.png");
-      return await createImageBitmap(img, 0, 0, img.width, img.height);
-    };
-
     //load stuff
-    const map = await loadMap();
+    const map = mapProvider;
+
+    const mapCoordsToScreenCoords = (targetX: number, targetY: number) => {
+      const yourPos = thisPlayerData.current.sprite.getPos();
+      let trueZeroX = Math.floor(yourPos.x - viewportWidth / 2);
+      let trueZeroY = Math.floor(yourPos.y - viewportHeight / 2);
+
+      if (trueZeroX < 0) trueZeroX = 0;
+      if (trueZeroY < 0) trueZeroY = 0;
+
+      if (trueZeroX > map.width - viewportWidth)
+        trueZeroX = map.width - viewportWidth;
+      if (trueZeroY > map.height - viewportHeight)
+        trueZeroY = map.height - viewportHeight;
+
+      const resultX = Math.floor((targetX - trueZeroX) * SCALE);
+      const resultY = Math.floor((targetY - trueZeroY) * SCALE);
+      return { x: resultX, y: resultY };
+    };
 
     const mapCentre = (targetX: number, targetY: number) => {
       let newX = Math.floor(targetX - viewportWidth / 2);
@@ -121,8 +136,23 @@ const Canvas = () => {
       };
     };
 
-    //TODO: implement to prevent unecessary draws
-    // const isInView = (x, y, width, height) => {};
+    const isInView = (
+      x: number,
+      y: number,
+      width: number,
+      height: number,
+      scale: number,
+    ) => {
+      //left
+      if (x + width * scale < 0) return false;
+      //top
+      if (y + height * scale < 0) return false;
+      //right
+      if (x > canvas.width) return false;
+      //bottom
+      if (y > canvas.height) return false;
+      return true;
+    };
 
     const keyDownFunc = (event: KeyboardEvent) => {
       const key = event.key;
@@ -247,7 +277,7 @@ const Canvas = () => {
       charStatus = nextStatus;
     };
 
-    requestAnimationFrame(update);
+    loopRef.current = requestAnimationFrame(update);
 
     function update(t: number) {
       if (t - lastTime > frame_time) {
@@ -258,41 +288,44 @@ const Canvas = () => {
         drawCharacter();
       }
 
-      requestAnimationFrame(update);
+      loopRef.current = requestAnimationFrame(update);
     }
-
-    // const renderText = (x, y, text) => {
-    //   const textWidth = text.length * 8;
-
-    //   for (let i = 0; i < text.length; i++) {
-    //     ctx.drawImage(
-    //       fontMap.get(text[i]),
-    //       x + 8 * SCALE * i,
-    //       y + 8 * SCALE,
-    //       8 * SCALE,
-    //       8 * SCALE,
-    //     );
-    //   }
-    // };
 
     const drawBG = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = "white";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+      if (!map.bitmap) return;
+
       const yourPos = thisPlayerData.current.sprite.getPos();
       const mapCoords = mapCentre(yourPos.x, yourPos.y);
       ctx.drawImage(
-        map,
+        map.bitmap,
         mapCoords.x,
         mapCoords.y,
+        viewportWidth,
+        viewportHeight,
+        0,
+        0,
         canvas.width,
         canvas.height,
-        0,
-        0,
-        canvas.width * SCALE,
-        canvas.height * SCALE,
       );
+
+      //draw decor
+      for (let entity of map.entities) {
+        const sprite = entity.requestNextFrame(map.spriteMap);
+        for (let pos of entity.positions) {
+          const { x, y } = mapCoordsToScreenCoords(pos.x, pos.y);
+          ctx.drawImage(
+            sprite,
+            x,
+            y,
+            entity.width * SCALE,
+            entity.height * SCALE,
+          );
+        }
+      }
     };
 
     const drawNPCs = () => {

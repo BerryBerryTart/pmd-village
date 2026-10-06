@@ -1,4 +1,4 @@
-import { useCallback, useContext, useState } from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { GameContext, type GameContextType } from "../Providers/GameProvider";
 import { getTime, imgToBase64 } from "../../utils/utils";
 import "./index.css";
@@ -8,13 +8,30 @@ import { MessageType } from "../../utils/enums";
 const Chat = () => {
   const [msgValue, setMsgValue] = useState<string>("");
   const gameContext = useContext(GameContext) as GameContextType;
+  const messageRef = useRef<null | HTMLDivElement>(null);
+  const containerRef = useRef<boolean>(false);
   const { thisPlayerData, messages, inputFocus, portraitMap, playerList } =
     gameContext.data;
   const { sendMessage } = gameContext.actions;
 
+  useEffect(() => {
+    if (
+      messages[messages.length - 1]?.userID === thisPlayerData.current.userID ||
+      containerRef.current
+    ) {
+      scrollIntoView();
+    }
+  }, [messages]);
+
+  const scrollIntoView = () => {
+    messageRef.current?.scrollIntoView({ behavior: "instant", block: "start" });
+  };
+
   const handleSend = () => {
-    sendMessage(msgValue, thisPlayerData.current.spriteName);
-    setMsgValue("");
+    if (msgValue.length > 0) {
+      sendMessage(msgValue, thisPlayerData.current.spriteName);
+      setMsgValue("");
+    }
   };
 
   const getPortrait = useCallback((portraitName: string) => {
@@ -46,6 +63,7 @@ const Chat = () => {
         </div>,
       );
     }
+    elements.push(<div key="ref" ref={messageRef} />);
     return elements;
   };
 
@@ -57,15 +75,32 @@ const Chat = () => {
     inputFocus.current = false;
   };
 
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      handleSend();
+    }
+  };
+
+  const handleScroll = (event) => {
+    const target = event.target;
+    if (target.scrollHeight - target.scrollTop === target.clientHeight) {
+      containerRef.current = true;
+    }
+  };
+
   return (
     <div id="chat-container">
       <div>
-        <div id="message-container">{renderMessages()}</div>
+        <div id="message-container" onScroll={handleScroll}>
+          {renderMessages()}
+        </div>
         <div id="input-box">
           <input
             onFocus={handleFocus}
             onBlur={handleBlur}
             onChange={(e) => setMsgValue(e.target.value)}
+            onKeyDown={handleKeyDown}
             value={msgValue}
           ></input>
           <button onClick={handleSend}>Send</button>
