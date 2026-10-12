@@ -1,6 +1,12 @@
 import dayjs from "dayjs";
 import { PlayerDirection, PlayerStatus } from "../utils/enums";
-import type { MapDataInterface, SpriteMap } from './interfaces';
+import type {
+  MapDataInterface,
+  MapLink,
+  PositionBox,
+  PositionInterface,
+  SpriteEntityMap,
+} from "./interfaces";
 
 type SpriteMapType = Map<
   string,
@@ -52,6 +58,7 @@ export class Sprite {
   x = 0;
   y = 0;
   dir = PlayerDirection.S;
+  locale = "default";
 
   constructor(
     spriteName: string,
@@ -107,6 +114,10 @@ export class Sprite {
     this.setStatus(status);
   }
 
+  updateLocale(locale: string) {
+    this.locale = locale;
+  }
+
   setStatus(nextStatus: PlayerStatus) {
     if (nextStatus === this.status) return;
     this.frameCounter = 0;
@@ -125,6 +136,7 @@ export class ServerPlayer {
   spriteName = "";
   username = "";
   userID = "";
+  locale = "default";
   x = 0;
   y = 0;
   dir = PlayerDirection.S;
@@ -159,6 +171,7 @@ export class GameManager {
     y: number,
     dir: PlayerDirection,
     status: PlayerStatus,
+    locale?: string,
   ) {
     const player = this.players.find((el) => el.userID === userID);
     if (!player) throw new Error("Error: Cannot Update Player");
@@ -166,6 +179,9 @@ export class GameManager {
     player.y = y;
     player.dir = dir;
     player.status = status;
+    if (locale) {
+      player.locale = locale;
+    }
   }
 
   removePlayer(userID: string) {
@@ -177,6 +193,12 @@ export class GameManager {
 
   serialisePlayers() {
     return this.players;
+  }
+
+  getPlayer(userID: string) {
+    const player = this.players.find((el) => el.userID === userID);
+    if (!player) throw new Error("Error: Cannot Update Player");
+    return player;
   }
 }
 
@@ -198,9 +220,14 @@ export class MapEntity {
   frameTimeCounter = 0;
   frameCounter = 0;
   spriteName = "";
-  positions = [];
+  positions: PositionInterface[] = [];
 
-  constructor(width, height, spriteName, positions) {
+  constructor(
+    width: number,
+    height: number,
+    spriteName: string,
+    positions: PositionInterface[],
+  ) {
     this.width = width;
     this.height = height;
     this.spriteName = spriteName;
@@ -216,7 +243,7 @@ export class MapEntity {
     }
   }
 
-  requestNextFrame(spriteMap: Map<string, SpriteMap>) {
+  requestNextFrame(spriteMap: Map<string, SpriteEntityMap>) {
     const result = spriteMap.get(this.spriteName);
     if (!result) return;
 
@@ -230,19 +257,22 @@ export class MapSprite {
   name = "default";
   width = 500;
   height = 500;
-  bitmap = undefined;
+  spawnX = 0;
+  spawnY = 0;
+  bitmap: ImageBitmap | undefined = undefined;
   spriteMap = new Map();
-  entities = [];
-  boundingBoxes = [];
+  entities: MapEntity[] = [];
+  boundingBoxes: PositionBox[] = [];
+  links: MapLink[] = [];
 
   constructor(name: string) {
     this.name = name;
   }
 
   async setup() {
-    const data: MapDataInterface = await fetch("/pmd-village/map/default.json").then((res) =>
-      res.json(),
-    );
+    const data: MapDataInterface = await fetch(
+      `/pmd-village/map/${this.name}.json`,
+    ).then((res) => res.json());
 
     const img = await loadImage(`/pmd-village/map/${data.filename}`);
     this.bitmap = await createImageBitmap(
@@ -254,22 +284,33 @@ export class MapSprite {
     );
     this.width = data.width;
     this.height = data.height;
+    this.spawnX = data.spawnX;
+    this.spawnY = data.spawnY;
+    this.links = data.links;
+    this.boundingBoxes = data.boundingBoxes;
 
     //load decor assets
     for (let decorSprite of data.decorSprites) {
       const spriteArr = [];
 
-      for (let i = 0; i < decorSprite.frames; i++) {
-        spriteArr.push(
-          await createImageBitmap(
-            img,
-            decorSprite.startX +
-              (decorSprite.width + decorSprite.widthPadding) * i,
-            decorSprite.startY,
-            decorSprite.width,
-            decorSprite.height,
-          ),
-        );
+      let frameCounter = 1;
+      for (let row = 0; row < decorSprite.rows; row++) {
+        for (let col = 0; col < decorSprite.framesPerRow; col++) {
+          spriteArr.push(
+            await createImageBitmap(
+              img,
+              decorSprite.startX +
+                (decorSprite.width + decorSprite.widthPadding) * col,
+              decorSprite.startY +
+                (decorSprite.height + decorSprite.rowOffset) * row,
+              decorSprite.width,
+              decorSprite.height,
+            ),
+          );
+          frameCounter++;
+          if (frameCounter > decorSprite.frames) break;
+        }
+        if (frameCounter > decorSprite.frames) break;
       }
 
       this.spriteMap.set(decorSprite.name, {

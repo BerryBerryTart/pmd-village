@@ -91,21 +91,20 @@ const Chat = () => {
 
   return (
     <div id="chat-container">
-      <div>
-        <div id="message-container" onScroll={handleScroll}>
-          {renderMessages()}
-        </div>
-        <div id="input-box">
-          <input
-            onFocus={handleFocus}
-            onBlur={handleBlur}
-            onChange={(e) => setMsgValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            value={msgValue}
-          ></input>
-          <button onClick={handleSend}>Send</button>
-        </div>
+      <div id="message-container" onScroll={handleScroll}>
+        {renderMessages()}
       </div>
+      <div id="input-box">
+        <input
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          onChange={(e) => setMsgValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          value={msgValue}
+        ></input>
+        <button onClick={handleSend}>Send</button>
+      </div>
+
       <div id="player-status">
         <div id="status-portrait">
           <img src={getPortrait(thisPlayerData.current.spriteName)} />

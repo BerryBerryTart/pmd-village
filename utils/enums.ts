@@ -22,6 +22,8 @@ export enum SocketEvent {
   CLIENT_MESSAGE = "client_message",
   CLIENT_MOVES = "client_move",
   CLIENT_LEAVES = "client_leaves",
+  CLIENT_CHANGE_LOCALE = "client_change_locale",
+  BROADCAST_LOCALE_CHANGE = "broadcast_locale_change",
   BROADCAST_MESSAGE = "broadcast_message",
   BROADCAST_MOVE = "braodcast_move",
   BROADCAST_ALL_PLAYERS = "broadcast_all_players",

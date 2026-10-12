@@ -1,13 +1,18 @@
 #chat-container {
+  height: 450px;
   width: 350px;
   padding: 10px;
   display: flex;
   flex-direction: column;
   align-items: center;
   #message-container {
-    height: 250px;
-    overflow: scroll;
+    width: inherit;
+    height: 100%;
+    overflow-y: auto;
     overflow-x: hidden;
+    display:flex;
+    flex-direction: column;
+    justify-content: start;
     .chat-line-item {
       display: flex;
       flex-direction: row;

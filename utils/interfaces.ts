@@ -33,10 +33,12 @@ interface BasePlayerInterface {
   x?: number;
   y?: number;
   dir?: PlayerDirection;
+  locale?: string;
 }
 
 export interface PlayerMovementInterface extends BasePlayerInterface {
   status: PlayerStatus;
+  locale?: string;
 }
 
 export interface ServerPlayerInterface extends BasePlayerInterface {
@@ -50,6 +52,27 @@ export interface SpriteMap {
   timings: number[];
 }
 
+export interface SpriteEntityMap {
+  sprite: ImageBitmap[];
+  timings: number[];
+}
+
+export interface PositionInterface {
+  x: number;
+  y: number;
+}
+
+export interface PositionBox extends PositionInterface {
+  w: number;
+  h: number;
+}
+
+export interface MapLink {
+  name: string;
+  entryBox: PositionBox;
+  loadInPos: { x: number; y: number };
+}
+
 export interface MapDataInterface {
   name: string;
   filename: string;
@@ -57,6 +80,10 @@ export interface MapDataInterface {
   startY: number;
   width: number;
   height: number;
+  spawnX: number;
+  spawnY: number;
+  links: MapLink[];
+  boundingBoxes: PositionBox[];
   decorSprites: {
     name: string;
     startX: number;
@@ -65,6 +92,9 @@ export interface MapDataInterface {
     height: number;
     widthPadding: number;
     frames: number;
+    framesPerRow: number;
+    rows: number;
+    rowOffset: number;
     timings: number[];
     positions: [{ x: number; y: number }];
   }[];

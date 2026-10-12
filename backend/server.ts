@@ -26,6 +26,8 @@ interface AuthType {
 const app = express();
 const server = createServer(app); // http
 
+const SPAWN = { x: 830, y: 160 };
+
 const io = new Server(server, {
   cors: { origin: "*", methods: ["GET", "POST"] },
 });
@@ -38,6 +40,18 @@ const game = new GameManager();
 const broadcastMessage = (eventType: SocketEvent, msg: any) => {
   for (let [_, s] of io.of("/").sockets) {
     s.emit(eventType, msg);
+  }
+};
+
+const broadcastMove = (payload: PlayerMovementInterface) => {
+  for (let [_, s] of io.of("/").sockets) {
+    //@ts-ignore
+    const { userID } = s;
+    const player = game.getPlayer(userID);
+    //check if player is in same locale
+    if (player.locale === payload.locale) {
+      s.emit(SocketEvent.BROADCAST_MOVE, payload);
+    }
   }
 };
 
@@ -66,15 +80,15 @@ io.on(SocketEvent.NEW_CONNECTION, (socket: GameSocket) => {
     time: dayjs().toISOString(),
     userID: socket.userID!,
     username: socket.username!,
-    portrait: socket.spriteName!
+    portrait: socket.spriteName!,
   });
 
   broadcastMessage(SocketEvent.CLIENT_LOAD_IN, {
     userID: auth.userID,
     username: auth.username,
     spriteName: auth.spriteName,
-    x: 800,
-    y: 200,
+    x: SPAWN.x,
+    y: SPAWN.y,
     dir: PlayerDirection.S,
   } as ServerPlayerInterface);
 
@@ -86,7 +100,7 @@ io.on(SocketEvent.NEW_CONNECTION, (socket: GameSocket) => {
       time: dayjs().toISOString(),
       userID: socket.userID,
       username: socket.username,
-      portrait: socket.spriteName!
+      portrait: socket.spriteName!,
     });
     game.removePlayer(socket.userID!);
     broadcastMessage(SocketEvent.CLIENT_LEAVES, { userID: socket.userID });
@@ -109,9 +123,17 @@ io.on(SocketEvent.NEW_CONNECTION, (socket: GameSocket) => {
       payload.y!,
       payload.dir!,
       payload.status,
+      payload.locale,
     );
-    broadcastMessage(SocketEvent.BROADCAST_MOVE, payload);
+    broadcastMove(payload);
   });
+
+  socket.on(
+    SocketEvent.CLIENT_CHANGE_LOCALE,
+    (payload: { userID: string; locale: string }) => {
+      broadcastMessage(SocketEvent.BROADCAST_LOCALE_CHANGE, payload);
+    },
+  );
 });
 
 server.listen(4141, () => console.log("Server started on port 4000"));

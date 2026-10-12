@@ -17,6 +17,7 @@ import {
 } from "../../utils/enums";
 import type {
   AnimDataInterface,
+  MapLink,
   MessageInterface,
   PlayerMovementInterface,
   ServerPlayerInterface,
@@ -36,7 +37,7 @@ export interface GameContextType {
     spriteMap: Map<string, SpriteMap>;
     portraitMap: Map<string, Map<string, ImageBitmap>>;
     playerList: Map<string, ServerPlayerInterface>;
-    mapProvider: MapSprite;
+    mapProvider: React.RefObject<MapSprite>;
   };
   actions: {
     sendMessage: (msg: string, portrait: string) => void;
@@ -49,6 +50,7 @@ export interface GameContextType {
       dir: PlayerDirection,
       status: PlayerStatus,
     ) => void;
+    loadMap: (mapName?: string, link?: MapLink) => Promise<void>;
   };
 }
 
@@ -67,6 +69,7 @@ export const GameProvider: React.FC<PropsWithChildren> = ({ children }) => {
     userID: v6(),
     spriteName: "",
     sprite: undefined,
+    locale: "default",
   });
   const entities = useRef<Sprite[]>([]);
   //TODO: setup default substitute sprite sheet in public folder
@@ -180,10 +183,23 @@ export const GameProvider: React.FC<PropsWithChildren> = ({ children }) => {
     await process("Idle", idleImg, PlayerStatus.IDLE);
   };
 
-  const loadMap = async () => {
-    const mapEntity = new MapSprite("default");
+  const loadMap = async (mapName = "default", link?: MapLink) => {
+    const mapEntity = new MapSprite(mapName);
     await mapEntity.setup();
     mapProvider.current = mapEntity;
+    if (link) {
+      thisPlayerData.current.sprite.x = link.loadInPos.x;
+      thisPlayerData.current.sprite.y = link.loadInPos.y;
+      thisPlayerData.current.locale = link.name;
+      updatePlayerPosition(
+        thisPlayerData.current.userID,
+        link.loadInPos.x,
+        link.loadInPos.y,
+        thisPlayerData.current.dir,
+        PlayerStatus.IDLE,
+      );
+      updatePlayerLocale(thisPlayerData.current.userID, link.name);
+    }
   };
 
   const connect = async (username: string, spriteName: string) => {
@@ -284,6 +300,17 @@ export const GameProvider: React.FC<PropsWithChildren> = ({ children }) => {
       await loadSprites(spriteName);
     });
 
+    socket.on(
+      SocketEvent.BROADCAST_LOCALE_CHANGE,
+      (payload: { userID: string; locale: string }) => {
+        const player = entities.current.find(
+          (el) => el.userID === payload.userID,
+        );
+        if (!player) return;
+        player.updateLocale(payload.locale);
+      },
+    );
+
     setConnected(true);
     thisPlayerData.current.username = username;
     thisPlayerData.current.spriteName = spriteName;
@@ -321,11 +348,22 @@ export const GameProvider: React.FC<PropsWithChildren> = ({ children }) => {
     dir: PlayerDirection,
     status: PlayerStatus,
   ) => {
-    const payload: PlayerMovementInterface = { userID, x, y, dir, status };
+    const payload: PlayerMovementInterface = {
+      userID,
+      x,
+      y,
+      dir,
+      status,
+      locale: thisPlayerData.current.locale
+    };
     sock.current.emit(SocketEvent.CLIENT_MOVES, payload);
   };
 
-  const buildNPCs = (newPlayer: ServerPlayerInterface) => {
+  const updatePlayerLocale = (userID: string, locale: string) => {
+    sock.current.emit(SocketEvent.CLIENT_CHANGE_LOCALE, { userID, locale });
+  };
+
+  const buildNPCs = (newPlayer: ServerPlayerInterface) => {    
     //already in
     const search = entities.current.find(
       (el) => el.userID === newPlayer.userID,
@@ -360,9 +398,15 @@ export const GameProvider: React.FC<PropsWithChildren> = ({ children }) => {
       spriteMap: spriteMap.current,
       portraitMap,
       playerList,
-      mapProvider: mapProvider.current
+      mapProvider,
     },
-    actions: { sendMessage, connect, disconnect, updatePlayerPosition },
+    actions: {
+      sendMessage,
+      connect,
+      disconnect,
+      updatePlayerPosition,
+      loadMap,
+    },
   } as GameContextType;
 
   return <GameContext value={value}>{children}</GameContext>;

@@ -6,7 +6,7 @@
   align-items: center;
   margin: 8px;
   #player-list {
-    overflow-y: scroll;
+    overflow-y: auto;
     overflow-x: hidden;
     border: 1px solid #282a35;
     width: 100%;

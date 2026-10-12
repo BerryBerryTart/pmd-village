@@ -10,7 +10,7 @@ const Canvas = () => {
   const loopRef = useRef(-1);
   const { inputFocus, thisPlayerData, entities, spriteMap, mapProvider } =
     gameContext.data;
-  const { updatePlayerPosition } = gameContext.actions;
+  const { updatePlayerPosition, loadMap } = gameContext.actions;
 
   useEffect(() => {
     initCanvas();
@@ -46,9 +46,6 @@ const Canvas = () => {
     const BASE_SPEED = 1;
     const buffer = 15;
 
-    //load stuff
-    const map = mapProvider;
-
     const mapCoordsToScreenCoords = (targetX: number, targetY: number) => {
       const yourPos = thisPlayerData.current.sprite.getPos();
       let trueZeroX = Math.floor(yourPos.x - viewportWidth / 2);
@@ -57,10 +54,10 @@ const Canvas = () => {
       if (trueZeroX < 0) trueZeroX = 0;
       if (trueZeroY < 0) trueZeroY = 0;
 
-      if (trueZeroX > map.width - viewportWidth)
-        trueZeroX = map.width - viewportWidth;
-      if (trueZeroY > map.height - viewportHeight)
-        trueZeroY = map.height - viewportHeight;
+      if (trueZeroX > mapProvider.current.width - viewportWidth)
+        trueZeroX = mapProvider.current.width - viewportWidth;
+      if (trueZeroY > mapProvider.current.height - viewportHeight)
+        trueZeroY = mapProvider.current.height - viewportHeight;
 
       const resultX = Math.floor((targetX - trueZeroX) * SCALE);
       const resultY = Math.floor((targetY - trueZeroY) * SCALE);
@@ -77,8 +74,8 @@ const Canvas = () => {
         newX = 0;
         xBoundary = true;
       }
-      if (newX > map.width - viewportWidth) {
-        newX = map.width - viewportWidth;
+      if (newX > mapProvider.current.width - viewportWidth) {
+        newX = mapProvider.current.width - viewportWidth;
         xBoundary = true;
       }
 
@@ -86,8 +83,8 @@ const Canvas = () => {
         newY = 0;
         yBoundary = true;
       }
-      if (newY > map.height - viewportHeight) {
-        newY = map.height - viewportHeight;
+      if (newY > mapProvider.current.height - viewportHeight) {
+        newY = mapProvider.current.height - viewportHeight;
         yBoundary = true;
       }
 
@@ -116,14 +113,14 @@ const Canvas = () => {
       if (yourPos.y - viewportHeight / 2 < 0) {
         playerYOffset = yourPos.y * SCALE - viewportHeight;
       }
-      if (yourPos.x >= map.width - viewportWidth / 2) {
+      if (yourPos.x >= mapProvider.current.width - viewportWidth / 2) {
         playerXOffset = Math.abs(
-          (map.width - yourPos.x) * SCALE - viewportWidth,
+          (mapProvider.current.width - yourPos.x) * SCALE - viewportWidth,
         );
       }
-      if (yourPos.y >= map.height - viewportHeight / 2) {
+      if (yourPos.y >= mapProvider.current.height - viewportHeight / 2) {
         playerYOffset = Math.abs(
-          (map.height - yourPos.y) * SCALE - viewportHeight,
+          (mapProvider.current.height - yourPos.y) * SCALE - viewportHeight,
         );
       }
       return {
@@ -154,6 +151,27 @@ const Canvas = () => {
       return true;
     };
 
+    const doesContain = (charX, charY, box) => {
+      if (
+        charX > box.x &&
+        charX < box.x + box.w &&
+        charY > box.y &&
+        charY < box.y + box.h
+      )
+        return true;
+      return false;
+    };
+
+    const handleMapMove = async () => {
+      const links = mapProvider.current.links;
+      const yourPos = thisPlayerData.current.sprite.getPos();
+      for (let link of links) {
+        if (doesContain(yourPos.x, yourPos.y, link.entryBox)) {
+          await loadMap(link.name, link);
+        }
+      }
+    };
+
     const keyDownFunc = (event: KeyboardEvent) => {
       const key = event.key;
       switch (key) {
@@ -176,9 +194,12 @@ const Canvas = () => {
       }
     };
 
-    const keyUpFunc = (event: KeyboardEvent) => {
+    const keyUpFunc = async (event: KeyboardEvent) => {
       const key = event.key;
       switch (key) {
+        case " ":
+          await handleMapMove();
+          break;
         case "ArrowLeft":
           keyDirs.left = false;
           break;
@@ -199,6 +220,66 @@ const Canvas = () => {
       window.addEventListener("keyup", keyUpFunc);
       keyDownListener.current = keyDownFunc;
       keyUpListener.current = keyUpFunc;
+    };
+
+    const overlapCheck = (
+      x1: number,
+      y1: number,
+      x2: number,
+      y2: number,
+      x3: number,
+      y3: number,
+      x4: number,
+      y4: number,
+    ) => {
+      //FIRST LINE 1 & 2 --- SECOND LINE 3 & 4
+      //ALWAYS GO LEFT TO RIGHT && TOP TO BOTTOM
+      const startX1 = Math.min(x1, x2);
+      const endX1 = Math.max(x1, x2);
+      const startX2 = Math.min(x3, x4);
+      const endX2 = Math.max(x3, x4);
+
+      const startY1 = Math.min(y1, y2);
+      const endY1 = Math.max(y1, y2);
+      const startY2 = Math.min(y3, y4);
+      const endY2 = Math.max(y3, y4);
+
+      let overlapX = false;
+      let overlapY = false;
+      //horizontal
+      if (startX1 < endX2 && endX1 > startX2) {
+        overlapX = true;
+      }
+
+      //vertical
+      if (startY1 < endY2 && endY1 > startY2) {
+        overlapY = true;
+      }
+
+      return overlapX && overlapY;
+    };
+
+    const collissionCheck = (nextX: number, nextY: number) => {
+      //use mini 10x10 box for char collision
+      const charXTop = nextX - 5;
+      const charYTop = nextY - 5;
+      const charXBottom = nextX + 5;
+      const charYBottom = nextY + 5;
+      for (let box of mapProvider.current.boundingBoxes) {
+        const overlap = overlapCheck(
+          box.x,
+          box.y,
+          box.x + box.w,
+          box.y + box.h,
+          charXTop,
+          charYTop,
+          charXBottom,
+          charYBottom,
+        );
+        if (overlap) return true;
+      }
+
+      return false;
     };
 
     const handleMovement = () => {
@@ -223,9 +304,9 @@ const Canvas = () => {
       let charDir = yourPos.dir;
 
       if (charX < buffer) stopLeft = true;
-      if (charX >= map.width - buffer) stopRight = true;
+      if (charX >= mapProvider.current.width - buffer) stopRight = true;
       if (charY < buffer) stopUp = true;
-      if (charY >= map.height - buffer) stopDown = true;
+      if (charY >= mapProvider.current.height - buffer) stopDown = true;
 
       if (keyDirs.up) {
         if (!stopUp) charY -= BASE_SPEED;
@@ -261,6 +342,8 @@ const Canvas = () => {
       //don't blast out packets if idle lol
       if (charStatus === PlayerStatus.IDLE && nextStatus === PlayerStatus.IDLE)
         return;
+
+      if (collissionCheck(charX, charY)) return;
       thisPlayerData.current.sprite.updatePos(
         charX,
         charY,
@@ -296,12 +379,12 @@ const Canvas = () => {
       ctx.fillStyle = "white";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      if (!map.bitmap) return;
+      if (!mapProvider.current.bitmap) return;
 
       const yourPos = thisPlayerData.current.sprite.getPos();
       const mapCoords = mapCentre(yourPos.x, yourPos.y);
       ctx.drawImage(
-        map.bitmap,
+        mapProvider.current.bitmap,
         mapCoords.x,
         mapCoords.y,
         viewportWidth,
@@ -313,8 +396,8 @@ const Canvas = () => {
       );
 
       //draw decor
-      for (let entity of map.entities) {
-        const sprite = entity.requestNextFrame(map.spriteMap);
+      for (let entity of mapProvider.current.entities) {
+        const sprite = entity.requestNextFrame(mapProvider.current.spriteMap);
         for (let pos of entity.positions) {
           const { x, y } = mapCoordsToScreenCoords(pos.x, pos.y);
           ctx.drawImage(
@@ -336,26 +419,31 @@ const Canvas = () => {
           return;
         }
 
-        const yourPos = thisPlayerData.current.sprite.getPos();
-        let trueZeroX = Math.floor(yourPos.x - viewportWidth / 2);
-        let trueZeroY = Math.floor(yourPos.y - viewportHeight / 2);
-
-        if (trueZeroX < 0) trueZeroX = 0;
-        if (trueZeroY < 0) trueZeroY = 0;
-
-        if (trueZeroX > map.width - viewportWidth)
-          trueZeroX = map.width - viewportWidth;
-        if (trueZeroY > map.height - viewportHeight)
-          trueZeroY = map.height - viewportHeight;
+        //skip if not in same locale
+        if (NPCs[i].locale !== thisPlayerData.current.locale) continue;
 
         const pos = NPCs[i].getPos();
-        ctx.drawImage(
-          sprite,
-          Math.floor((pos.x - trueZeroX) * SCALE - (sprite.width * SCALE) / 2),
-          Math.floor((pos.y - trueZeroY) * SCALE - (sprite.height * SCALE) / 2),
-          sprite.width * SCALE,
-          sprite.height * SCALE,
+        const { x, y } = mapCoordsToScreenCoords(pos.x, pos.y);
+        const spriteX = Math.floor(x - (sprite.width * SCALE) / 2);
+        const spriteY = Math.floor(y - (sprite.height * SCALE) / 2);
+
+        const viewable = isInView(
+          spriteX,
+          spriteY,
+          sprite.width,
+          sprite.height,
+          SCALE,
         );
+
+        if (viewable) {
+          ctx.drawImage(
+            sprite,
+            spriteX,
+            spriteY,
+            sprite.width * SCALE,
+            sprite.height * SCALE,
+          );
+        }
       }
     };
 
