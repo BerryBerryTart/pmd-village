@@ -13,6 +13,8 @@ const Chat = () => {
   const { thisPlayerData, messages, inputFocus, portraitMap, playerList } =
     gameContext.data;
   const { sendMessage } = gameContext.actions;
+  const [selectedPortrait, setSelectedPortrait] = useState("normal");
+  const [portraitSelectorOpen, setPortraitSelectorOpen] = useState(false);
 
   useEffect(() => {
     if (
@@ -28,27 +30,35 @@ const Chat = () => {
   };
 
   const handleSend = () => {
-    if (msgValue.length > 0) {
-      sendMessage(msgValue, thisPlayerData.current.spriteName);
+    if (msgValue.length > 0 || msgValue.length <= 200) {
+      sendMessage(
+        msgValue,
+        `${thisPlayerData.current.spriteName}|${selectedPortrait}`,
+      );
       setMsgValue("");
     }
   };
 
-  const getPortrait = useCallback((portraitName: string) => {
-    const portrait = portraitMap.get(portraitName)?.get("normal");
-    if (!portrait) return normal;
-    return imgToBase64(portrait);
-  }, []);
+  const getPortrait = useCallback(
+    (portraitName: string, emotion = "normal") => {
+      const portrait = portraitMap.get(portraitName)?.get(emotion);
+      if (!portrait) return normal;
+      return imgToBase64(portrait);
+    },
+    [],
+  );
 
   //TODO: create virtual list later
   const renderMessages = () => {
     const elements = [];
     for (let i = 0; i < messages.length; i++) {
       const msg = messages[i];
+      const portraitName = msg.portrait.split("|")[0];
+      const mood = msg.portrait.split("|")[1] ?? "normal";
       elements.push(
         <div className="chat-line-item" key={`${i}`}>
           <div className="icon">
-            <img src={getPortrait(msg.portrait)} />
+            <img src={getPortrait(portraitName, mood)} />
           </div>
           <div className="chat-box">
             <div className="msg-time">{getTime(msg.time)}:</div>
@@ -89,6 +99,28 @@ const Chat = () => {
     }
   };
 
+  const renderAllPortraits = () => {
+    const elements = [];
+    const selectionMap = portraitMap.get(thisPlayerData.current.spriteName);
+    if (!selectionMap) return elements;
+
+    for (let [k, v] of selectionMap) {
+      elements.push(
+        <button
+          className="portrait-button"
+          style={{ backgroundImage: `url(${imgToBase64(v)})` }}
+          key={k}
+          onClick={() => {
+            setSelectedPortrait(k);
+            setPortraitSelectorOpen(false);
+          }}
+        ></button>,
+      );
+    }
+
+    return elements;
+  };
+
   return (
     <div id="chat-container">
       <div id="message-container" onScroll={handleScroll}>
@@ -101,13 +133,24 @@ const Chat = () => {
           onChange={(e) => setMsgValue(e.target.value)}
           onKeyDown={handleKeyDown}
           value={msgValue}
+          maxLength={200}
         ></input>
         <button onClick={handleSend}>Send</button>
       </div>
 
       <div id="player-status">
         <div id="status-portrait">
-          <img src={getPortrait(thisPlayerData.current.spriteName)} />
+          <button
+            id="popover-start"
+            onClick={() => setPortraitSelectorOpen(!portraitSelectorOpen)}
+            className="portrait-button"
+            style={{
+              backgroundImage: `url(${getPortrait(thisPlayerData.current.spriteName, selectedPortrait)})`,
+            }}
+          ></button>
+          {portraitSelectorOpen && (
+            <div id="popover-portrait">{renderAllPortraits()}</div>
+          )}
           <div>{thisPlayerData.current.spriteName}</div>
         </div>
         <div id="status-text">

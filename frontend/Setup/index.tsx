@@ -26,6 +26,7 @@ const Setup = () => {
   const renderPortraits = () => {
     const elements = [];
 
+    //TODO: split this off from the main provider to save memory
     for (let [key, value] of portraitMap.entries()) {
       const bitmap = value.get("normal");
       elements.push(

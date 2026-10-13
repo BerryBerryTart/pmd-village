@@ -22,8 +22,15 @@ import type {
   PlayerMovementInterface,
   ServerPlayerInterface,
 } from "../../utils/interfaces";
-import { v6 } from "uuid";
-import { loadImage, MapSprite, ServerPlayer, Sprite } from "../../utils/utils";
+import { nanoid } from "nanoid";
+import {
+  isBlankImage,
+  loadImage,
+  MapSprite,
+  portraitNameMap,
+  ServerPlayer,
+  Sprite,
+} from "../../utils/utils";
 
 export const GameContext = createContext({});
 
@@ -38,6 +45,7 @@ export interface GameContextType {
     portraitMap: Map<string, Map<string, ImageBitmap>>;
     playerList: Map<string, ServerPlayerInterface>;
     mapProvider: React.RefObject<MapSprite>;
+    fontMap: Map<string, ImageBitmap>;
   };
   actions: {
     sendMessage: (msg: string, portrait: string) => void;
@@ -66,7 +74,7 @@ export const GameProvider: React.FC<PropsWithChildren> = ({ children }) => {
   const [connected, setConnected] = useState(false);
   const thisPlayerData = useRef<ServerPlayerInterface>({
     username: "",
-    userID: v6(),
+    userID: nanoid(),
     spriteName: "",
     sprite: undefined,
     locale: "default",
@@ -77,11 +85,11 @@ export const GameProvider: React.FC<PropsWithChildren> = ({ children }) => {
   const [portraitMap, setPortraitMap] = useState<
     Map<string, Map<string, ImageBitmap>>
   >(new Map());
-  // const mapAsset = useRef<ImageBitmap>(undefined);
   const [playerList, setPlayerList] = useState<
     Map<string, ServerPlayerInterface>
   >(new Map());
   const mapProvider = useRef(undefined);
+  const fontMap = useRef<Map<string, ImageBitmap>>(new Map());
 
   useEffect(() => {
     loadSubstituteSprite();
@@ -108,6 +116,7 @@ export const GameProvider: React.FC<PropsWithChildren> = ({ children }) => {
     );
   };
 
+  //TODO: set this up to selectively load assets instead of all at once
   const loadAssets = useCallback(async () => {
     const data: { characters: string[] } = await fetch(
       `/pmd-village/characters.json`,
@@ -122,9 +131,21 @@ export const GameProvider: React.FC<PropsWithChildren> = ({ children }) => {
       );
       const mapBuffer = new Map();
 
-      //loopify this later lol
-      const portraitBuffer = await createImageBitmap(img, 0, 0, 40, 40);
-      mapBuffer.set("normal", portraitBuffer);
+      for (let row = 0; row < 4; row++) {
+        for (let col = 0; col < 5; col++) {
+          const portraitBuffer = await createImageBitmap(
+            img,
+            col * 40,
+            row * 40,
+            40,
+            40,
+          );
+          if (!isBlankImage(portraitBuffer)) {
+            const portraitName = portraitNameMap.get(`${row}-${col}`);
+            mapBuffer.set(portraitName, portraitBuffer);
+          }
+        }
+      }
       portraitMapBuffer.set(character, mapBuffer);
     }
     setPortraitMap(portraitMapBuffer);
@@ -202,9 +223,36 @@ export const GameProvider: React.FC<PropsWithChildren> = ({ children }) => {
     }
   };
 
+  const loadFonts = async () => {
+    const img = await loadImage("/pmd-village/sprite/font.png");
+    const fontMapBuffer = new Map();
+    for (let i = 0; i < 10; i++) {
+      const bitmap = await createImageBitmap(img, i * 8, 0, 8, 8);
+      fontMapBuffer.set(`${i}`, bitmap);
+    }
+    let counter = 0;
+    //load letters
+    for (let row = 0; row < 2; row++) {
+      for (let col = 0; col < 13; col++) {
+        const letter = String.fromCharCode(97 + counter);
+        const bitmap = await createImageBitmap(
+          img,
+          col * 8,
+          row * 8 + 18,
+          8,
+          8,
+        );
+        fontMapBuffer.set(letter, bitmap);
+        counter++;
+      }
+    }
+    fontMap.current = fontMapBuffer;
+  };
+
   const connect = async (username: string, spriteName: string) => {
     await loadSprites(spriteName);
     await loadMap();
+    await loadFonts();
     return handleConnect(username, spriteName);
   };
 
@@ -354,7 +402,7 @@ export const GameProvider: React.FC<PropsWithChildren> = ({ children }) => {
       y,
       dir,
       status,
-      locale: thisPlayerData.current.locale
+      locale: thisPlayerData.current.locale,
     };
     sock.current.emit(SocketEvent.CLIENT_MOVES, payload);
   };
@@ -363,7 +411,7 @@ export const GameProvider: React.FC<PropsWithChildren> = ({ children }) => {
     sock.current.emit(SocketEvent.CLIENT_CHANGE_LOCALE, { userID, locale });
   };
 
-  const buildNPCs = (newPlayer: ServerPlayerInterface) => {    
+  const buildNPCs = (newPlayer: ServerPlayerInterface) => {
     //already in
     const search = entities.current.find(
       (el) => el.userID === newPlayer.userID,
@@ -399,6 +447,7 @@ export const GameProvider: React.FC<PropsWithChildren> = ({ children }) => {
       portraitMap,
       playerList,
       mapProvider,
+      fontMap: fontMap.current,
     },
     actions: {
       sendMessage,

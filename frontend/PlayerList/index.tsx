@@ -4,7 +4,6 @@ import { imgToBase64 } from "../../utils/utils";
 import normal from "/sprite/normal.png";
 import "./index.css";
 
-//TODO: use memo this guy
 const PlayerList = () => {
   const gameContext = useContext(GameContext) as GameContextType;
   const { portraitMap, playerList } = gameContext.data;

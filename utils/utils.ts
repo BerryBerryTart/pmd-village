@@ -214,6 +214,42 @@ export function imgToBase64(img: ImageBitmap) {
   return canvas.toDataURL();
 }
 
+export function isBlankImage(img: ImageBitmap) {
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  canvas.width = img.width;
+  canvas.height = img.height;
+
+  if (ctx) ctx.drawImage(img, 0, 0);
+  else throw new Error("Error: Canvas Not Supported!");
+
+  let data = ctx.getImageData(0, 0, 1, 1).data;
+  return data[0] === 0 && data[1] === 0 && data[2] === 0;
+}
+
+export const portraitNameMap = new Map([
+  ["0-0", "normal"],
+  ["0-1", "happy"],
+  ["0-2", "pain"],
+  ["0-3", "angry"],
+  ["0-4", "worried"],
+  ["1-0", "sad"],
+  ["1-1", "crying"],
+  ["1-2", "shouting"],
+  ["1-3", "teary-eyed"],
+  ["1-4", "determined"],
+  ["2-0", "joyous"],
+  ["2-1", "inspired"],
+  ["2-2", "surprised"],
+  ["2-3", "dizzy"],
+  ["2-4", "special0"],
+  ["3-0", "special1"],
+  ["3-1", "sigh"],
+  ["3-2", "stunned"],
+  ["3-3", "special2"],
+  ["3-4", "special3"],
+]);
+
 export class MapEntity {
   width = 0;
   height = 0;

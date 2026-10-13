@@ -2,14 +2,21 @@ import { useContext, useEffect, useRef } from "react";
 import "./index.css";
 import { PlayerDirection, PlayerStatus } from "../../utils/enums";
 import { GameContext, type GameContextType } from "../Providers/GameProvider";
+import type { PositionBox } from "../../utils/interfaces";
 
 const Canvas = () => {
   const gameContext = useContext(GameContext) as GameContextType;
   const keyDownListener = useRef((_: KeyboardEvent) => {});
   const keyUpListener = useRef((_: KeyboardEvent) => {});
   const loopRef = useRef(-1);
-  const { inputFocus, thisPlayerData, entities, spriteMap, mapProvider } =
-    gameContext.data;
+  const {
+    inputFocus,
+    thisPlayerData,
+    entities,
+    spriteMap,
+    mapProvider,
+    fontMap,
+  } = gameContext.data;
   const { updatePlayerPosition, loadMap } = gameContext.actions;
 
   useEffect(() => {
@@ -45,6 +52,7 @@ const Canvas = () => {
     let charStatus = PlayerStatus.IDLE;
     const BASE_SPEED = 1;
     const buffer = 15;
+    let loadingMap = false;
 
     const mapCoordsToScreenCoords = (targetX: number, targetY: number) => {
       const yourPos = thisPlayerData.current.sprite.getPos();
@@ -151,7 +159,7 @@ const Canvas = () => {
       return true;
     };
 
-    const doesContain = (charX, charY, box) => {
+    const doesContain = (charX: number, charY: number, box: PositionBox) => {
       if (
         charX > box.x &&
         charX < box.x + box.w &&
@@ -167,7 +175,9 @@ const Canvas = () => {
       const yourPos = thisPlayerData.current.sprite.getPos();
       for (let link of links) {
         if (doesContain(yourPos.x, yourPos.y, link.entryBox)) {
+          loadingMap = true;
           await loadMap(link.name, link);
+          loadingMap = false;
         }
       }
     };
@@ -283,7 +293,7 @@ const Canvas = () => {
     };
 
     const handleMovement = () => {
-      if (inputFocus.current) return;
+      if (inputFocus.current || loadingMap) return;
       let nextStatus = PlayerStatus.IDLE;
       if (keyDirs.up || keyDirs.down || keyDirs.left || keyDirs.right) {
         thisPlayerData.current.sprite.setStatus(PlayerStatus.RUNNING);
@@ -360,6 +370,14 @@ const Canvas = () => {
       charStatus = nextStatus;
     };
 
+    const renderText = (x: number, y: number, text: string, scale = SCALE) => {
+      for (let i = 0; i < text.length; i++) {
+        const img = fontMap.get(text[i]);
+        if (!img) continue;
+        ctx.drawImage(img, x + 8 * scale * i, y * scale, 8 * scale, 8 * scale);
+      }
+    };
+
     loopRef.current = requestAnimationFrame(update);
 
     function update(t: number) {
@@ -369,8 +387,8 @@ const Canvas = () => {
         drawBG();
         drawNPCs();
         drawCharacter();
+        isLoading();
       }
-
       loopRef.current = requestAnimationFrame(update);
     }
 
@@ -460,6 +478,12 @@ const Canvas = () => {
       );
 
       // renderText(centre.x, centre.y, "zorua");
+    };
+
+    const isLoading = () => {
+      if (loadingMap) {
+        renderText(0, 0, "loading");
+      }
     };
 
     setupListeners();
