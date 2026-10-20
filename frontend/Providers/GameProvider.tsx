@@ -1,6 +1,5 @@
 import {
   createContext,
-  useCallback,
   useEffect,
   useRef,
   useState,
@@ -91,15 +90,13 @@ export const GameProvider: React.FC<PropsWithChildren> = ({ children }) => {
   const mapProvider = useRef(undefined);
   const fontMap = useRef<Map<string, ImageBitmap>>(new Map());
 
-  useEffect(() => {
-    loadSubstituteSprite();
+  useEffect(() => {    
     if (thisPlayerData.current.username && thisPlayerData.current.spriteName) {
       handleConnect(
         thisPlayerData.current.username,
         thisPlayerData.current.spriteName,
       );
     }
-    loadAssets();
     console.log("Connected");
     return () => {
       disconnect();
@@ -117,39 +114,33 @@ export const GameProvider: React.FC<PropsWithChildren> = ({ children }) => {
   };
 
   //TODO: set this up to selectively load assets instead of all at once
-  const loadAssets = useCallback(async () => {
-    const data: { characters: string[] } = await fetch(
-      `/pmd-village/characters.json`,
-    ).then((res) => res.json());
+  const loadPortraits = async (character: string) => {
+    const portraitMapBuffer: Map<string, Map<string, ImageBitmap>> = new Map();
 
-    const { characters } = data;
-    const portraitMapBuffer = new Map();
+    const img = await loadImage(
+      `/pmd-village/sprite/${character}/portrait.png`,
+    );
+    const mapBuffer: Map<string, ImageBitmap> = new Map();
 
-    for (let character of characters) {
-      const img = await loadImage(
-        `/pmd-village/sprite/${character}/portrait.png`,
-      );
-      const mapBuffer = new Map();
-
-      for (let row = 0; row < 4; row++) {
-        for (let col = 0; col < 5; col++) {
-          const portraitBuffer = await createImageBitmap(
-            img,
-            col * 40,
-            row * 40,
-            40,
-            40,
-          );
-          if (!isBlankImage(portraitBuffer)) {
-            const portraitName = portraitNameMap.get(`${row}-${col}`);
-            mapBuffer.set(portraitName, portraitBuffer);
-          }
+    for (let row = 0; row < 4; row++) {
+      for (let col = 0; col < 5; col++) {
+        const portraitBuffer = await createImageBitmap(
+          img,
+          col * 40,
+          row * 40,
+          40,
+          40,
+        );
+        if (!isBlankImage(portraitBuffer)) {
+          const portraitName = portraitNameMap.get(`${row}-${col}`);
+          mapBuffer.set(portraitName, portraitBuffer);
         }
       }
-      portraitMapBuffer.set(character, mapBuffer);
     }
-    setPortraitMap(portraitMapBuffer);
-  }, []);
+    portraitMapBuffer.set(character, mapBuffer);
+
+    setPortraitMap((prev) => new Map([...prev, ...portraitMapBuffer]));
+  };
 
   const loadSprites = async (name: string) => {
     const walkImg = await loadImage(
@@ -224,7 +215,7 @@ export const GameProvider: React.FC<PropsWithChildren> = ({ children }) => {
   };
 
   const loadFonts = async () => {
-    const img = await loadImage("/pmd-village/sprite/font.png");
+    const img = await loadImage("/pmd-village/font.png");
     const fontMapBuffer = new Map();
     for (let i = 0; i < 10; i++) {
       const bitmap = await createImageBitmap(img, i * 8, 0, 8, 8);
@@ -250,7 +241,9 @@ export const GameProvider: React.FC<PropsWithChildren> = ({ children }) => {
   };
 
   const connect = async (username: string, spriteName: string) => {
+    await loadSubstituteSprite();
     await loadSprites(spriteName);
+    await loadPortraits(spriteName);
     await loadMap();
     await loadFonts();
     return handleConnect(username, spriteName);
@@ -283,9 +276,12 @@ export const GameProvider: React.FC<PropsWithChildren> = ({ children }) => {
       setMessages((prev) => [...prev, payload]);
     });
 
-    socket.on(SocketEvent.CLIENT_LOAD_IN, (payload: ServerPlayerInterface) => {
-      buildNPCs(payload);
-    });
+    socket.on(
+      SocketEvent.CLIENT_LOAD_IN,
+      async (payload: ServerPlayerInterface) => {
+        await buildNPCs(payload);
+      },
+    );
 
     socket.on(SocketEvent.CLIENT_DISCONNECT, () => {
       disconnect();
@@ -309,7 +305,7 @@ export const GameProvider: React.FC<PropsWithChildren> = ({ children }) => {
         const playerMapBuffer: Map<string, ServerPlayerInterface> = new Map();
         for (let player of players) {
           await loadSprites(player.spriteName);
-          buildNPCs({ ...player });
+          await buildNPCs({ ...player });
 
           if (!playerList.get(player.userID)) {
             playerMapBuffer.set(player.userID, {
@@ -411,7 +407,7 @@ export const GameProvider: React.FC<PropsWithChildren> = ({ children }) => {
     sock.current.emit(SocketEvent.CLIENT_CHANGE_LOCALE, { userID, locale });
   };
 
-  const buildNPCs = (newPlayer: ServerPlayerInterface) => {
+  const buildNPCs = async (newPlayer: ServerPlayerInterface) => {
     //already in
     const search = entities.current.find(
       (el) => el.userID === newPlayer.userID,
@@ -425,6 +421,12 @@ export const GameProvider: React.FC<PropsWithChildren> = ({ children }) => {
       newPlayer.username,
       newPlayer.dir,
     );
+
+    //load portraits
+    if (!portraitMap.get(newPlayer.spriteName)) {
+      console.log("loading in " + newPlayer.spriteName);
+      await loadPortraits(newPlayer.spriteName);
+    }
 
     //set set NPC sprites
     if (newPlayer.userID !== thisPlayerData.current.userID) {

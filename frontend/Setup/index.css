@@ -10,16 +10,72 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    #char-select {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+      #selected-portrait {
+        padding: 4px 8px;
+        height: 40px;
+      }
+      #select-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        position: relative;
+      }
+      #char-input-search {
+        width: 200px;
+      }
+      #char-list {
+        z-index: 10;
+        position: absolute;
+        top: 48px;
+        margin: 4px;
+        border-radius: 6px;
+        background-color: rgb(22, 22, 22);
+        .ReactVirtualized__Grid {
+          scrollbar-width: thin;
+        }
+        .char-row {
+          padding: 0px 12px;
+          cursor: pointer;
+          border-radius: 6px;
+          color: white;
+          transition: background-color 200ms;
+          display: flex;
+          align-items: center;
+        }
+        .char-row:hover {
+          background-color: rgb(46, 46, 46);
+        }
+      }
+    }
+    #alt-container{
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      font-size: 12px;
+      font-style: italic;
+    }
     #portraits {
       display: flex;
       flex-direction: row;
       align-items: center;
-      margin-bottom: 16px;
-      img {
+      margin-top: 8px;
+      padding: 8px;
+      border: 1px solid #555866;
+      .portrait {
         opacity: 0.4;
+        padding: 4px;
         transition: opacity 0.3s;
       }
-      .selected, img:hover {
+      .portrait:hover {
+        opacity: 0.7;
+      }
+      .selected, .selected:hover  {
         opacity: 1;
       }
     }

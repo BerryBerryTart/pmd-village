@@ -1,8 +1,8 @@
-import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { GameContext, type GameContextType } from "../Providers/GameProvider";
 import { getTime, imgToBase64 } from "../../utils/utils";
 import "./index.css";
-import normal from "/sprite/normal.png";
+import normal from "/normal.png";
 import { MessageType } from "../../utils/enums";
 
 const Chat = () => {
@@ -13,7 +13,7 @@ const Chat = () => {
   const { thisPlayerData, messages, inputFocus, portraitMap, playerList } =
     gameContext.data;
   const { sendMessage } = gameContext.actions;
-  const [selectedPortrait, setSelectedPortrait] = useState("normal");
+  const [selectedPortrait, setSelectedPortrait] = useState("Normal");
   const [portraitSelectorOpen, setPortraitSelectorOpen] = useState(false);
 
   useEffect(() => {
@@ -39,14 +39,12 @@ const Chat = () => {
     }
   };
 
-  const getPortrait = useCallback(
-    (portraitName: string, emotion = "normal") => {
+  const getPortrait =
+    (portraitName: string, emotion = "Normal") => {
       const portrait = portraitMap.get(portraitName)?.get(emotion);
       if (!portrait) return normal;
       return imgToBase64(portrait);
-    },
-    [],
-  );
+    };
 
   //TODO: create virtual list later
   const renderMessages = () => {
@@ -54,7 +52,7 @@ const Chat = () => {
     for (let i = 0; i < messages.length; i++) {
       const msg = messages[i];
       const portraitName = msg.portrait.split("|")[0];
-      const mood = msg.portrait.split("|")[1] ?? "normal";
+      const mood = msg.portrait.split("|")[1] ?? "Normal";
       elements.push(
         <div className="chat-line-item" key={`${i}`}>
           <div className="icon">

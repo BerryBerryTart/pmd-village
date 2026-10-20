@@ -1,18 +1,18 @@
-import { useCallback, useContext } from "react";
+import { useContext } from "react";
 import { GameContext, type GameContextType } from "../Providers/GameProvider";
 import { imgToBase64 } from "../../utils/utils";
-import normal from "/sprite/normal.png";
+import normal from "/normal.png";
 import "./index.css";
 
 const PlayerList = () => {
   const gameContext = useContext(GameContext) as GameContextType;
   const { portraitMap, playerList } = gameContext.data;
 
-  const getPortrait = useCallback((portraitName: string) => {
-    const portrait = portraitMap.get(portraitName)?.get("normal");
+  const getPortrait = (portraitName: string) => {
+    const portrait = portraitMap.get(portraitName)?.get("Normal");
     if (!portrait) return normal;
     return imgToBase64(portrait);
-  }, []);
+  };
 
   const renderList = () => {
     const elements = [];

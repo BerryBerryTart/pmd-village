@@ -223,31 +223,44 @@ export function isBlankImage(img: ImageBitmap) {
   if (ctx) ctx.drawImage(img, 0, 0);
   else throw new Error("Error: Canvas Not Supported!");
 
-  let data = ctx.getImageData(0, 0, 1, 1).data;
-  return data[0] === 0 && data[1] === 0 && data[2] === 0;
+  let dataTL = ctx.getImageData(0, 0, 1, 1).data;
+  let dataBR = ctx.getImageData(img.width - 1, img.height - 1, 1, 1).data;
+  if (dataTL[3]) {
+    return (
+      dataTL[0] === 255 &&
+      dataTL[1] === 255 &&
+      dataTL[2] === 255 &&
+      dataTL[3] === 255 &&
+      dataBR[0] === 255 &&
+      dataBR[1] === 255 &&
+      dataBR[2] === 255 &&
+      dataBR[3] === 255
+    );
+  }
+  return dataTL[0] === 0 && dataTL[1] === 0 && dataTL[2] === 0;
 }
 
 export const portraitNameMap = new Map([
-  ["0-0", "normal"],
-  ["0-1", "happy"],
-  ["0-2", "pain"],
-  ["0-3", "angry"],
-  ["0-4", "worried"],
-  ["1-0", "sad"],
-  ["1-1", "crying"],
-  ["1-2", "shouting"],
-  ["1-3", "teary-eyed"],
-  ["1-4", "determined"],
-  ["2-0", "joyous"],
-  ["2-1", "inspired"],
-  ["2-2", "surprised"],
-  ["2-3", "dizzy"],
-  ["2-4", "special0"],
-  ["3-0", "special1"],
-  ["3-1", "sigh"],
-  ["3-2", "stunned"],
-  ["3-3", "special2"],
-  ["3-4", "special3"],
+  ["0-0", "Normal"],
+  ["0-1", "Happy"],
+  ["0-2", "Pain"],
+  ["0-3", "Angry"],
+  ["0-4", "Worried"],
+  ["1-0", "Sad"],
+  ["1-1", "Crying"],
+  ["1-2", "Shouting"],
+  ["1-3", "Teary-Wyed"],
+  ["1-4", "Determined"],
+  ["2-0", "Joyous"],
+  ["2-1", "Inspired"],
+  ["2-2", "Surprised"],
+  ["2-3", "Dizzy"],
+  ["2-4", "Special0"],
+  ["3-0", "Special1"],
+  ["3-1", "Sigh"],
+  ["3-2", "Stunned"],
+  ["3-3", "Special2"],
+  ["3-4", "Special3"],
 ]);
 
 export class MapEntity {

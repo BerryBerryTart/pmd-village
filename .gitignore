@@ -27,3 +27,4 @@ dist-ssr
 public/sprite
 public/map
 *.zip
+importer/paths.js

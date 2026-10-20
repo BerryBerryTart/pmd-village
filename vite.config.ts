@@ -7,6 +7,7 @@ export default defineConfig({
   envDir: "./env",
   base: "/pmd-village",
   build: {
+    copyPublicDir: false,
     rollupOptions: {
       output: {
         entryFileNames: `assets/[name].js`,
